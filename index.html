@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Airport Distance Calculator with Leaflet</title>
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+    />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      .controls {
+        padding: 15px;
+        background-color: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+      }
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: flex-end;
+      }
+      .form-group {
+        flex: 1;
+        min-width: 200px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        height: 35px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #map {
+        flex: 1;
+        width: 100%;
+      }
+      #result {
+        padding: 10px 15px;
+        margin-top: 10px;
+        background-color: #e7f3fe;
+        border-left: 5px solid #2196f3;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="controls">
+        <h2>Airport Distance Calculator</h2>
+        <div id="formContainer"></div>
+        <div id="result"></div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+      // Sample airport data
+      const airports = [
+        {
+          name: "Indira Gandhi International Airport",
+          coords: [28.5562, 77.1],
+        },
+        {
+          name: "Chhatrapati Shivaji Maharaj International Airport",
+          coords: [19.0896, 72.8656],
+        },
+        {
+          name: "Kempegowda International Airport",
+          coords: [13.1986, 77.7066],
+        },
+        {
+          name: "Netaji Subhas Chandra Bose International Airport",
+          coords: [22.6547, 88.4467],
+        },
+        { name: "Chennai International Airport", coords: [12.9941, 80.1709] },
+        {
+          name: "Rajiv Gandhi International Airport",
+          coords: [17.2403, 78.4294],
+        },
+        { name: "Cochin International Airport", coords: [10.152, 76.4019] },
+        {
+          name: "Sardar Vallabhbhai Patel International Airport",
+          coords: [23.0722, 72.6311],
+        },
+        { name: "Goa International Airport", coords: [15.38, 73.8312] },
+        { name: "Jaipur International Airport", coords: [26.8242, 75.8028] },
+        {
+          name: "Lokpriya Gopinath Bordoloi International Airport",
+          coords: [26.1061, 91.5859],
+        },
+        {
+          name: "Sri Guru Ram Dass Jee International Airport",
+          coords: [31.7096, 74.7973],
+        },
+        {
+          name: "Biju Patnaik International Airport",
+          coords: [20.2539, 85.8178],
+        },
+        { name: "Devi Ahilya Bai Holkar Airport", coords: [22.7216, 75.801] },
+        {
+          name: "Lal Bahadur Shastri International Airport",
+          coords: [25.4524, 82.8593],
+        },
+        {
+          name: "Dr. Babasaheb Ambedkar International Airport",
+          coords: [21.0922, 79.0472],
+        },
+        {
+          name: "Veer Savarkar International Airport",
+          coords: [11.6411, 92.7297],
+        },
+        { name: "Birsa Munda Airport", coords: [23.3142, 85.3219] },
+        { name: "Bagdogra Airport", coords: [26.6812, 88.3286] },
+        { name: "Mangalore International Airport", coords: [12.9613, 74.8901] },
+        { name: "Madurai Airport", coords: [9.8345, 78.0934] },
+        { name: "Trivandrum International Airport", coords: [8.4821, 76.9206] },
+        { name: "Pune Airport", coords: [18.5826, 73.9197] },
+        { name: "Surat Airport", coords: [21.1141, 72.7411] },
+        { name: "Vadodara Airport", coords: [22.3362, 73.2263] },
+        { name: "Visakhapatnam Airport", coords: [17.7211, 83.2245] },
+        { name: "Patna Airport", coords: [25.5913, 85.0882] },
+        { name: "Agartala Airport", coords: [23.886, 91.2405] },
+        { name: "Imphal Airport", coords: [24.7606, 93.8967] },
+        { name: "Dibrugarh Airport", coords: [27.4839, 95.0169] },
+        { name: "Shillong Airport", coords: [25.7036, 91.9782] },
+        { name: "Dimapur Airport", coords: [25.8839, 93.7714] },
+        { name: "Jammu Airport", coords: [32.6891, 74.8379] },
+        { name: "Leh Airport", coords: [34.1359, 77.5465] },
+        { name: "Port Blair Airport", coords: [11.6411, 92.7297] },
+        { name: "Dehradun Airport", coords: [30.1897, 78.1809] },
+      ];
+
+      // Initialize Leaflet map
+      const map = L.map("map").setView([20, 0], 2);
+
+      // Add tile layer (OpenStreetMap)
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      // Store markers and route line
+      const airportMarkers = [];
+      let routeLine;
+
+      // Create form using your code
+      var form = document.createElement("form");
+      form.innerHTML = `
+      <div class="form-group">
+        <label for="source">Source Airport:</label>
+        <select id="source">
+        ${airports
+          .map(
+            (airport, index) =>
+              `<option value="${index}">${airport.name}</option>`
+          )
+          .join("")}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="destination">Destination Airport:</label>
+        <select id="destination">
+        ${airports
+          .map(
+            (airport, index) =>
+              `<option value="${index}">${airport.name}</option>`
+          )
+          .join("")}
+        </select>
+      </div>
+      <button type="button" id="calculateDistance">Calculate Distance</button>
+    `;
+      document.getElementById("formContainer").appendChild(form);
+
+      // Set initial destination to different from source
+      document.getElementById("destination").selectedIndex = 1;
+
+      // Initialize map with all airport markers
+      initializeMap();
+
+      // Add event listener to calculate distance
+      document
+        .getElementById("calculateDistance")
+        .addEventListener("click", function () {
+          calculateDistance();
+        });
+
+      function initializeMap() {
+        // Add all airport markers to the map
+        airports.forEach((airport, index) => {
+          const marker = L.marker(airport.coords)
+            .bindPopup(airport.name)
+            .addTo(map);
+          airportMarkers.push(marker);
+        });
+
+        // Create a bounds object to fit all markers
+        const bounds = L.latLngBounds(
+          airports.map((airport) => airport.coords)
+        );
+
+        // Fit the map to show all markers
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+        });
+      }
+
+      function calculateDistance() {
+        var sourceIndex = document.getElementById("source").value;
+        var destinationIndex = document.getElementById("destination").value;
+
+        if (sourceIndex !== destinationIndex) {
+          var sourceAirport = airports[sourceIndex];
+          var destinationAirport = airports[destinationIndex];
+
+          // Calculate distance using Leaflet's built-in method
+          var distance =
+            map.distance(
+              L.latLng(sourceAirport.coords[0], sourceAirport.coords[1]),
+              L.latLng(
+                destinationAirport.coords[0],
+                destinationAirport.coords[1]
+              )
+            ) / 1000; // Convert to kilometers
+
+          const resultDiv = document.getElementById("result");
+          resultDiv.textContent = `Distance from ${sourceAirport.name} to ${
+            destinationAirport.name
+          }: ${distance.toFixed(2)} km`;
+          resultDiv.style.display = "block";
+
+          // Draw route line
+          drawRoute(sourceAirport.coords, destinationAirport.coords);
+
+          // Open popups for source and destination
+          airportMarkers[sourceIndex].openPopup();
+        } else {
+          alert("Source and destination cannot be the same.");
+        }
+      }
+
+      function drawRoute(sourceCoords, destCoords) {
+        // Remove existing route line if there is one
+        if (routeLine) {
+          map.removeLayer(routeLine);
+        }
+
+        // Create new route line
+        routeLine = L.polyline([sourceCoords, destCoords], {
+          color: "blue",
+          weight: 3,
+          opacity: 0.7,
+          dashArray: "10, 10",
+        }).addTo(map);
+
+        // Fit map to show the route
+        map.fitBounds(routeLine.getBounds(), {
+          padding: [50, 50],
+        });
+      }
+    </script>
+  </body>
+</html>
