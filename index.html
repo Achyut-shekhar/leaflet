@@ -4,251 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Airport Distance Calculator with Leaflet</title>
-    <!-- Leaflet CSS -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
     />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-      }
-      .container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-      }
-      .controls {
-        padding: 15px;
-        background-color: #f5f5f5;
-        border-bottom: 1px solid #ddd;
-      }
-      form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        align-items: flex-end;
-      }
-      .form-group {
-        flex: 1;
-        min-width: 200px;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      select {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-      }
-      button {
-        padding: 8px 16px;
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        height: 35px;
-      }
-      button:hover {
-        background-color: #45a049;
-      }
-      #map {
-        flex: 1;
-        width: 100%;
-      }
-      #result {
-        padding: 10px 15px;
-        margin-top: 10px;
-        background-color: #e7f3fe;
-        border-left: 5px solid #3091e1;
-        display: none;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="container">
       <div class="controls">
         <h2>Airport Distance Calculator</h2>
-        <div id="formContainer"></div>
-        <div id="result"></div>
+        <div id="formContainer">
+          <form id="airportForm">
+            <div class="form-group">
+              <label for="source">Source Airport:</label>
+              <select id="source"></select>
+            </div>
+            <div class="form-group">
+              <label for="destination">Destination Airport:</label>
+              <select id="destination"></select>
+            </div>
+            <button type="button" id="calculateDistance">
+              Calculate Distance
+            </button>
+          </form>
+        </div>
+        <div id="result" style="margin-top: 10px; display: none"></div>
       </div>
       <div id="map"></div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-
-    <!-- External JS: airportsData.js (loaded after DOM content) -->
-    <script src="airportsData.js"></script>
-    <script src="danger-zones.js"></script>
-
-    <script>
-      // Initialize Leaflet map
-      const map = L.map('map', {
-        maxBounds: [[-90, -180], [90, 180]], // world bounds
-        maxBoundsViscosity: 1.0 // how "sticky" the boundary is
-      });
-
-      // Add tile layer (OpenStreetMap)
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        noWrap: true
-      }).addTo(map);
-
-      // Store markers and route line
-      const airportMarkers = [];
-      let routeLine;
-
-      // Create form dynamically
-      const form = document.createElement("form");
-      form.innerHTML = `
-        <div class="form-group">
-          <label for="source">Source Airport:</label>
-          <select id="source">
-            ${airports
-              .map(
-                (airport, index) =>
-                  `<option value="${index}">${airport.name}</option>`
-              )
-              .join("")}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="destination">Destination Airport:</label>
-          <select id="destination">
-            ${airports
-              .map(
-                (airport, index) =>
-                  `<option value="${index}">${airport.name}</option>`
-              )
-              .join("")}
-          </select>
-        </div>
-        <button type="button" id="calculateDistance">Calculate Distance</button>
-      `;
-      document.getElementById("formContainer").appendChild(form);
-
-      // Set initial destination to different from source
-      document.getElementById("destination").selectedIndex = 1;
-
-      // Initialize map with all airport markers
-      // initializeMap();
-      // Set initial map view (optional)
-      map.setView([20, 0], 2);
-      loadDangerZones();
-
-
-      // Add event listener to calculate distance
-      document
-        .getElementById("calculateDistance")
-        .addEventListener("click", function () {
-          calculateDistance();
-        });
-
-      // Function to initialize map with airport markers
-      // function initializeMap() {
-      //   airports.forEach((airport, index) => {
-      //     const marker = L.marker(airport.coords)
-      //       .bindPopup(airport.name)
-      //       .addTo(map);
-      //     airportMarkers.push(marker);
-
-      //     loadDangerZones();
-      //   });
-
-      //   // Create a bounds object to fit all markers
-      //   const bounds = L.latLngBounds(
-      //     airports.map((airport) => airport.coords)
-      //   );
-
-      //   // Fit the map to show all markers
-      //   map.fitBounds(bounds, {
-      //     padding: [50, 50],
-      //   });
-      // }
-
-      // Function to calculate distance between selected airports
-      function calculateDistance() {
-  const sourceIndex = document.getElementById("source").value;
-  const destinationIndex = document.getElementById("destination").value;
-
-  // Remove previous markers
-  airportMarkers.forEach(marker => map.removeLayer(marker));
-  airportMarkers.length = 0;
-
-  if (sourceIndex !== destinationIndex) {
-    const sourceAirport = airports[sourceIndex];
-    const destinationAirport = airports[destinationIndex];
-
-    const distance =
-      map.distance(
-        L.latLng(sourceAirport.coords[0], sourceAirport.coords[1]),
-        L.latLng(destinationAirport.coords[0], destinationAirport.coords[1])
-      ) / 1000;
-
-    const resultDiv = document.getElementById("result");
-    resultDiv.textContent = `Distance from ${sourceAirport.name} to ${destinationAirport.name}: ${distance.toFixed(2)} km`;
-    resultDiv.style.display = "block";
-
-    // Add only the source and destination markers
-    const sourceMarker = L.marker(sourceAirport.coords)
-      .bindPopup(sourceAirport.name)
-      .addTo(map)
-      .openPopup();
-    airportMarkers.push(sourceMarker);
-
-    const destinationMarker = L.marker(destinationAirport.coords)
-      .bindPopup(destinationAirport.name)
-      .addTo(map);
-    airportMarkers.push(destinationMarker);
-
-    drawRoute(sourceAirport.coords, destinationAirport.coords);
-  } else {
-    alert("Source and destination cannot be the same.");
-  }
-}
-
-
-      // Function to draw route line between two airports
-      function drawRoute(sourceCoords, destCoords) {
-        // Remove existing route line if there is one
-        if (routeLine) {
-          map.removeLayer(routeLine);
-        }
-
-        // Create new route line
-        routeLine = L.polyline([sourceCoords, destCoords], {
-          color: "blue",
-          weight: 3,
-          opacity: 0.7,
-          dashArray: "10, 10",
-        }).addTo(map);
-
-        // Fit map to show the route
-        map.fitBounds(routeLine.getBounds(), {
-          padding: [50, 50],
-        });
-      }
-
-      function loadDangerZones() {
-        dangerZone.forEach(zone => {
-          L.polygon(zone.coords, {
-            color: zone.color,
-            fillColor: zone.color,
-            fillOpacity: 0.5,
-            weight: 2,
-            opacity: 0.3,
-          }).addTo(map).bindPopup(`<b>${zone.name}</b><br>Danger Zone`);
-        });
-      }
-
-
-    </script>
+    <script src="./data/airportsData.js"></script>
+    <script src="./data/danger-zones.js"></script>
+    <script src="script.js"></script>
   </body>
 </html>
