@@ -103,7 +103,7 @@ const map = L.map("map", {
   
     // Create and place a plane icon
     const planeIcon = L.icon({
-      iconUrl: "./image/plane-map-pointer-icon_791764-3335-removebg-preview.png",
+      iconUrl: "./plane.png",
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
