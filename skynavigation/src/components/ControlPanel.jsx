@@ -5,12 +5,20 @@ function ControlPanel({ onCalculateDistance, distance }) {
   const [sourceIndex, setSourceIndex] = useState(0);
   const [destinationIndex, setDestinationIndex] = useState(1);
   const [airportList, setAirportList] = useState([]);
+  const [timeToDestination, setTimeToDestination] = useState(null);
 
   useEffect(() => {
     if (airports && airports.length >= 2) {
       setAirportList(airports);
     }
   }, []);
+
+  // Method to calculate the flight time based on the distance
+  const calculateTime = (distance) => {
+    const averageSpeed = 850; // Average speed in km/h
+    const time = distance / averageSpeed; // Time in hours
+    return time;
+  };
 
   const handleCalculate = () => {
     if (sourceIndex === destinationIndex) {
@@ -24,6 +32,14 @@ function ControlPanel({ onCalculateDistance, distance }) {
   };
 
   const isDisabled = airportList.length < 2;
+
+  // Update the time whenever distance is available
+  useEffect(() => {
+    if (distance) {
+      const time = calculateTime(distance);
+      setTimeToDestination(time);
+    }
+  }, [distance]);
 
   return (
     <div className="w-screen mx-auto p-1 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg rounded-2xl border border-gray-300">
@@ -94,11 +110,19 @@ function ControlPanel({ onCalculateDistance, distance }) {
         </form>
       )}
 
-      {distance && !isDisabled && (
+      {distance && !isDisabled && timeToDestination !== null && (
         <div className="mt-2 p-3 bg-blue-100  border-blue-600 text-blue-900 text-lg rounded-md shadow">
-          Distance from <strong>{airportList[sourceIndex].name}</strong> to{" "}
-          <strong>{airportList[destinationIndex].name}</strong>:{" "}
-          <span className="font-bold">{distance.toFixed(2)} km</span>
+          <p>
+            Distance from <strong>{airportList[sourceIndex].name}</strong> to{" "}
+            <strong>{airportList[destinationIndex].name}</strong>:{" "}
+            <span className="font-bold">{distance.toFixed(2)} km</span>
+          </p>
+          <p>
+            Estimated Time:{" "}
+            <span className="font-bold">
+              {timeToDestination.toFixed(2)} hours
+            </span>
+          </p>
         </div>
       )}
     </div>
