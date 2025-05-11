@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Airport Distance Calculator with Leaflet</title>
+    <title>Global Airport Distance Calculator</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
@@ -13,7 +13,7 @@
   <body>
     <div class="container">
       <div class="controls">
-        <h2>Airport Distance Calculator</h2>
+        <h2>Global Airport Distance Calculator</h2>
         <div id="formContainer">
           <form id="airportForm">
             <div class="form-group">
@@ -35,8 +35,9 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-    <script src="./data/airportsData.js"></script>
     <script src="./data/danger-zones.js"></script>
+    <script src="dijkstra.js"></script>
+    <script src="./data/process_airports.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
