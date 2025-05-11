@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import Map from "./components/Map";
 import ControlPanel from "./components/ControlPanel";
-import "./animations.css"; // Import custom animations
+import AirTrafficMap from "./pages/air_traffic";
+import Weather from "./pages/weather"; // Make sure the casing matches your file name
+import "./animations.css"; // Custom animations
 
 function App() {
   const [sourceAirport, setSourceAirport] = useState(null);
@@ -13,10 +15,11 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 4000); // Show splash for 4 seconds
-    return () => clearTimeout(timer); // Cleanup the timer when the component is unmounted
+    const timer = setTimeout(() => setShowSplash(false), 4000);
+    return () => clearTimeout(timer);
   }, []);
 
+  // This function is now accessible in all sections
   const handleCalculateDistance = (source, destination) => {
     setSourceAirport(source);
     setDestinationAirport(destination);
@@ -28,13 +31,41 @@ function App() {
     }
   };
 
+  // Add effect to log when airports change
+  useEffect(() => {
+    console.log("App - Source Airport updated:", sourceAirport);
+    console.log("App - Destination Airport updated:", destinationAirport);
+  }, [sourceAirport, destinationAirport]);
+
+  // Handle section change - keep context when switching tabs
+  const handleSectionChange = (section) => {
+    setActiveSection(section);
+    
+    // If switching to weather and no airports are selected yet, 
+    // you could optionally set defaults for testing
+    if (section === "weather" && !sourceAirport && !destinationAirport) {
+      // Uncomment for testing purposes only
+      /*
+      setSourceAirport({ 
+        city: "New York",
+        name: "John F. Kennedy International Airport",
+        coords: [40.6413, -73.7781]
+      });
+      setDestinationAirport({
+        city: "London",
+        name: "Heathrow Airport",
+        coords: [51.4700, -0.4543]
+      });
+      */
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-gray-100">
       {showSplash ? (
         <div className="flex flex-col items-center justify-center h-screen bg-white fade-in">
-          {/* Logo: You can replace 'logo.png' with the actual path to your logo */}
           <img
-            src="logo.png" // Replace with actual logo path
+            src="logo.png"
             alt="SkyNavigation Logo"
             className="w-24 h-24 mb-4 pulse"
           />
@@ -44,8 +75,6 @@ function App() {
           <p className="text-xl text-gray-600 max-w-md text-center px-6 fade-in-up">
             Visualizing Air Routes with Intelligence
           </p>
-
-          {/* Loading Spinner */}
           <div className="absolute bottom-16 animate-spin text-blue-600 text-3xl">
             <svg
               className="w-12 h-12"
@@ -67,7 +96,7 @@ function App() {
         <>
           <Header
             activeSection={activeSection}
-            setActiveSection={setActiveSection}
+            setActiveSection={handleSectionChange} // Use the new handler
           />
           <div className="flex-1 flex flex-col">
             {activeSection === "distance" && (
@@ -75,6 +104,8 @@ function App() {
                 <ControlPanel
                   onCalculateDistance={handleCalculateDistance}
                   distance={distance}
+                  sourceAirport={sourceAirport} // Pass current selections
+                  destinationAirport={destinationAirport} // Pass current selections
                 />
                 <Map
                   sourceAirport={sourceAirport}
@@ -85,13 +116,16 @@ function App() {
               </>
             )}
             {activeSection === "traffic" && (
-              <div className="flex-1 flex items-center justify-center text-2xl font-semibold text-gray-600">
-                Air Traffic Visualization (Coming soon...)
+              <div className="flex-1 overflow-hidden">
+                <AirTrafficMap />
               </div>
             )}
             {activeSection === "weather" && (
-              <div className="flex-1 flex items-center justify-center text-2xl font-semibold text-gray-600">
-                Weather Report along Route (Coming soon...)
+              <div className="flex-1 overflow-auto">
+                <Weather
+                  sourceAirport={sourceAirport}
+                  destinationAirport={destinationAirport}
+                />
               </div>
             )}
           </div>
