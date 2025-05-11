@@ -5,7 +5,6 @@ class Graph {
     }
 
     buildGraph(airports, dangerZones) {
-        console.log('Building graph with', airports.length, 'airports');
         this.dangerZones = dangerZones;
         
         // Create vertices for each airport
@@ -14,18 +13,15 @@ class Graph {
         });
 
         // Add edges between airports
-        let edgeCount = 0;
         for (let i = 0; i < airports.length; i++) {
             for (let j = i + 1; j < airports.length; j++) {
                 const distance = this.calculateDistance(airports[i].coords, airports[j].coords);
                 if (distance <= 5000 && !this.intersectsDangerZone(airports[i].coords, airports[j].coords)) {
                     this.vertices.get(i).set(j, distance);
                     this.vertices.get(j).set(i, distance);
-                    edgeCount++;
                 }
             }
         }
-        console.log('Graph built with', edgeCount, 'edges');
     }
 
     calculateDistance(coord1, coord2) {

@@ -21,8 +21,6 @@ L.tileLayer(
 const airportMarkers = [];
 let routeLine;
 let graph;
-let exploringLines = [];
-let finalPathLine;
 let planeMarker;
 let animationFrame;
 
@@ -64,128 +62,92 @@ function addAirportMarkers() {
     // Clear existing markers
     airportMarkers.forEach(marker => map.removeLayer(marker));
     airportMarkers.length = 0;
-
-    // Add markers for all airports
-    window.airports.forEach(airport => {
-        if (airport.coords && Array.isArray(airport.coords) && airport.coords.length === 2) {
-            const marker = L.marker(airport.coords)
-                .bindPopup(airport.name)
-                .addTo(map);
-            airportMarkers.push(marker);
-        } else {
-            console.warn('Invalid coordinates for airport:', airport);
-        }
-    });
-
-    console.log(`Added ${airportMarkers.length} airport markers to the map`);
 }
 
-// Function to clear all route lines
-function clearRouteLines() {
+// Function to clear route
+function clearRoute() {
     if (routeLine) map.removeLayer(routeLine);
-    if (finalPathLine) map.removeLayer(finalPathLine);
-    exploringLines.forEach(line => map.removeLayer(line));
-    exploringLines = [];
     if (planeMarker) map.removeLayer(planeMarker);
     if (animationFrame) cancelAnimationFrame(animationFrame);
+    // Clear all markers
+    airportMarkers.forEach(marker => map.removeLayer(marker));
+    airportMarkers.length = 0;
 }
 
-// Function to draw exploring path
-function drawExploringPath(fromIndex, toIndex, color = 'gray') {
-    console.log('Drawing exploring path:', fromIndex, toIndex, color);
-    const fromAirport = window.airports[fromIndex];
-    const toAirport = window.airports[toIndex];
-    
-    if (!fromAirport || !toAirport) {
-        console.error('Invalid airport indices:', fromIndex, toIndex);
-        return;
-    }
-    
-    const line = L.polyline([fromAirport.coords, toAirport.coords], {
-        color: color,
+// Function to draw route
+function drawRoute(pathCoords, sourceIndex, destinationIndex, pathIndices) {
+    // Draw the route line
+    routeLine = L.polyline(pathCoords, {
+        color: 'blue',
         weight: 3,
         opacity: 0.7,
         dashArray: '10, 10'
     }).addTo(map);
-    
-    // Add popup to show distance
-    const distance = graph.calculateDistance(fromAirport.coords, toAirport.coords);
-    line.bindPopup(`Distance: ${distance.toFixed(2)} km`);
-    
-    exploringLines.push(line);
-    
-    // Fit map to show the current path
-    const bounds = L.latLngBounds([fromAirport.coords, toAirport.coords]);
-    map.fitBounds(bounds.pad(0.1));
-}
 
-// Function to draw final path
-function drawFinalPath(pathIndices) {
-    console.log('Drawing final path:', pathIndices);
-    const pathCoords = pathIndices.map(index => window.airports[index].coords);
-    
-    // Draw the final path with a different style
-    finalPathLine = L.polyline(pathCoords, {
-        color: 'red',
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '15, 15'
-    }).addTo(map);
-    
-    // Add markers for each airport in the path
+    // Add markers for all airports in the path
     pathIndices.forEach((index, i) => {
         const airport = window.airports[index];
-        const marker = L.marker(airport.coords, {
-            icon: L.divIcon({
-                className: 'path-marker',
-                html: `<div style="background-color: red; color: white; padding: 2px 5px; border-radius: 3px;">${i + 1}</div>`
-            })
-        }).addTo(map);
-        marker.bindPopup(`Stop ${i + 1}: ${airport.name}`);
+        const isSource = index === sourceIndex;
+        const isDestination = index === destinationIndex;
+        
+        // Create a custom icon with number
+        const icon = L.divIcon({
+            className: 'path-marker',
+            html: `<div style="background-color: ${isSource ? 'green' : isDestination ? 'red' : 'blue'}; 
+                             color: white; 
+                             padding: 2px 5px; 
+                             border-radius: 3px;
+                             font-weight: bold;">${i + 1}</div>`
+        });
+
+        // Add marker with popup
+        const marker = L.marker(airport.coords, { icon: icon })
+            .bindPopup(`${isSource ? 'Source' : isDestination ? 'Destination' : 'Stop ' + (i + 1)}: ${airport.name}`)
+            .addTo(map);
+        
         airportMarkers.push(marker);
     });
-    
+
     // Create and place a plane icon
     const planeIcon = L.icon({
         iconUrl: "./plane.png",
         iconSize: [32, 32],
         iconAnchor: [16, 16],
     });
-    
+
     planeMarker = L.marker(pathCoords[0], { icon: planeIcon }).addTo(map);
-    
+
     let currentSegment = 0;
     let progress = 0;
-    
+
     function animatePlane() {
         if (currentSegment >= pathCoords.length - 1) return;
-        
+
         const start = pathCoords[currentSegment];
         const end = pathCoords[currentSegment + 1];
-        
+
         const currentLat = start[0] + (end[0] - start[0]) * progress;
         const currentLng = start[1] + (end[1] - start[1]) * progress;
-        
+
         planeMarker.setLatLng([currentLat, currentLng]);
-        
+
         progress += 0.002; // Adjust speed here
-        
+
         if (progress >= 1) {
             progress = 0;
             currentSegment++;
         }
-        
+
         animationFrame = requestAnimationFrame(animatePlane);
     }
-    
+
     animatePlane();
-    
-    // Fit map to show the entire path
-    const bounds = L.latLngBounds(pathCoords);
-    map.fitBounds(bounds.pad(0.1));
+
+    // Fit map to show the entire route
+    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
 }
 
-// Function to calculate distance with visualization
+// Function to calculate distance
 async function calculateDistance() {
     if (!window.airports || window.airports.length === 0) {
         alert('Airport data not available. Please refresh the page.');
@@ -195,38 +157,30 @@ async function calculateDistance() {
     const sourceIndex = parseInt(document.getElementById("source").value);
     const destinationIndex = parseInt(document.getElementById("destination").value);
 
-    // Clear existing markers and routes
-    clearRouteLines();
+    // Clear existing route
+    clearRoute();
 
     if (sourceIndex !== destinationIndex) {
         const sourceAirport = window.airports[sourceIndex];
         const destinationAirport = window.airports[destinationIndex];
 
-        // Show loading message
+        // Find shortest path using Dijkstra's algorithm
+        const result = await graph.dijkstra(sourceIndex, destinationIndex);
+
+        if (result.path.length === 0) {
+            alert("No safe path found between the selected airports!");
+            return;
+        }
+
         const resultDiv = document.getElementById("result");
-        resultDiv.textContent = "Calculating route...";
+        resultDiv.textContent = `Shortest safe distance from ${sourceAirport.name} to ${
+            destinationAirport.name
+        }: ${result.distance.toFixed(2)} km`;
         resultDiv.style.display = "block";
 
-        try {
-            // Find shortest path using Dijkstra's algorithm with visualization
-            const result = await graph.dijkstraWithVisualization(sourceIndex, destinationIndex, drawExploringPath);
-            console.log('Dijkstra result:', result);
-
-            if (result.path.length === 0) {
-                resultDiv.textContent = "No safe path found between the selected airports!";
-                return;
-            }
-
-            resultDiv.textContent = `Shortest safe distance from ${sourceAirport.name} to ${
-                destinationAirport.name
-            }: ${result.distance.toFixed(2)} km`;
-
-            // Draw the final path
-            drawFinalPath(result.path);
-        } catch (error) {
-            console.error('Error calculating route:', error);
-            resultDiv.textContent = "Error calculating route. Please try again.";
-        }
+        // Draw route through all airports in the path
+        const pathCoords = result.path.map(index => window.airports[index].coords);
+        drawRoute(pathCoords, sourceIndex, destinationIndex, result.path);
     } else {
         alert("Source and destination cannot be the same.");
     }
