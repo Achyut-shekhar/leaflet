@@ -3,8 +3,9 @@ import Header from "./components/Header";
 import Map from "./components/Map";
 import ControlPanel from "./components/ControlPanel";
 import AirTrafficMap from "./pages/air_traffic";
-import Weather from "./pages/weather"; // Make sure the casing matches your file name
-import "./animations.css"; // Custom animations
+import Weather from "./pages/weather";
+import Contact from "./pages/Contact";  // ✅ New Import
+import "./animations.css";
 
 function App() {
   const [sourceAirport, setSourceAirport] = useState(null);
@@ -19,7 +20,6 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // This function is now accessible in all sections
   const handleCalculateDistance = (source, destination) => {
     setSourceAirport(source);
     setDestinationAirport(destination);
@@ -31,33 +31,13 @@ function App() {
     }
   };
 
-  // Add effect to log when airports change
   useEffect(() => {
     console.log("App - Source Airport updated:", sourceAirport);
     console.log("App - Destination Airport updated:", destinationAirport);
   }, [sourceAirport, destinationAirport]);
 
-  // Handle section change - keep context when switching tabs
   const handleSectionChange = (section) => {
     setActiveSection(section);
-    
-    // If switching to weather and no airports are selected yet, 
-    // you could optionally set defaults for testing
-    if (section === "weather" && !sourceAirport && !destinationAirport) {
-      // Uncomment for testing purposes only
-      /*
-      setSourceAirport({ 
-        city: "New York",
-        name: "John F. Kennedy International Airport",
-        coords: [40.6413, -73.7781]
-      });
-      setDestinationAirport({
-        city: "London",
-        name: "Heathrow Airport",
-        coords: [51.4700, -0.4543]
-      });
-      */
-    }
   };
 
   return (
@@ -96,7 +76,7 @@ function App() {
         <>
           <Header
             activeSection={activeSection}
-            setActiveSection={handleSectionChange} // Use the new handler
+            setActiveSection={handleSectionChange}
           />
           <div className="flex-1 flex flex-col">
             {activeSection === "distance" && (
@@ -104,8 +84,8 @@ function App() {
                 <ControlPanel
                   onCalculateDistance={handleCalculateDistance}
                   distance={distance}
-                  sourceAirport={sourceAirport} // Pass current selections
-                  destinationAirport={destinationAirport} // Pass current selections
+                  sourceAirport={sourceAirport}
+                  destinationAirport={destinationAirport}
                 />
                 <Map
                   sourceAirport={sourceAirport}
@@ -115,17 +95,25 @@ function App() {
                 />
               </>
             )}
+
             {activeSection === "traffic" && (
               <div className="flex-1 overflow-hidden">
                 <AirTrafficMap />
               </div>
             )}
+
             {activeSection === "weather" && (
               <div className="flex-1 overflow-auto">
                 <Weather
                   sourceAirport={sourceAirport}
                   destinationAirport={destinationAirport}
                 />
+              </div>
+            )}
+
+            {activeSection === "contact" && (  // ✅ New Contact Section
+              <div className="flex-1 overflow-auto">
+                <Contact />
               </div>
             )}
           </div>
