@@ -283,7 +283,7 @@ function AirTrafficMap() {
 
       // Using the OpenSky Network API
       const url = `https://opensky-network.org/api/states/all?lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`;
-
+      console.log(url);
       const response = await fetch(url, {
         // Uncomment and update if you have an OpenSky account
         // headers: {
