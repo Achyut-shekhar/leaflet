@@ -1,59 +1,106 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { findShortestPath } from "../utils/dijkstra";
+import { loadAirportData } from "../utils/airportUtils";
 
 const Weather = ({ sourceAirport, destinationAirport }) => {
-  const [sourceWeather, setSourceWeather] = useState(null);
-  const [destinationWeather, setDestinationWeather] = useState(null);
+  const [routeWeather, setRouteWeather] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [airports, setAirports] = useState([]);
 
   const apiKey = "4ac7f7d0d27638b77a137c5553a7053c";
 
-  const getWeather = async (lat, lon, setter, airportName) => {
+  // Load airport data
+  useEffect(() => {
+    const fetchAirports = async () => {
+      try {
+        const data = await loadAirportData();
+        setAirports(data);
+      } catch (error) {
+        console.error('Error loading airport data:', error);
+      }
+    };
+
+    fetchAirports();
+  }, []);
+
+  const getWeather = async (lat, lon, airportName) => {
     if (lat == null || lon == null) {
       console.warn(`Missing lat/lon for ${airportName}`);
-      return;
+      return null;
     }
 
     try {
-      setLoading(true);
-      setError(null);
-
       const res = await axios.get(
         `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
       );
 
-      console.log(`Weather data for ${airportName}:`, res.data);
-      setter(res.data);
+      return {
+        airportName,
+        weather: res.data
+      };
     } catch (err) {
       console.error(`Error fetching weather for ${airportName}`, err);
-      setError(`Failed to fetch weather for ${airportName}`);
-      setter(null);
-    } finally {
-      setLoading(false);
+      return null;
     }
   };
 
   useEffect(() => {
-    setSourceWeather(null);
-    setDestinationWeather(null);
-    setError(null);
+    const fetchRouteWeather = async () => {
+      if (!sourceAirport || !destinationAirport || airports.length === 0) {
+        setRouteWeather([]);
+        return;
+      }
 
-    if (sourceAirport?.coords) {
-      const [lat, lon] = sourceAirport.coords;
-      getWeather(lat, lon, setSourceWeather, sourceAirport.name);
-    }
+      setLoading(true);
+      setError(null);
 
-    if (destinationAirport?.coords) {
-      const [lat, lon] = destinationAirport.coords;
-      getWeather(lat, lon, setDestinationWeather, destinationAirport.name);
-    }
-  }, [sourceAirport, destinationAirport]);
+      try {
+        // Find source and destination indices
+        const sourceIndex = airports.findIndex(
+          (airport) => airport.name === sourceAirport.name
+        );
+        const destinationIndex = airports.findIndex(
+          (airport) => airport.name === destinationAirport.name
+        );
+
+        // Find shortest path using Dijkstra's algorithm
+        const result = findShortestPath(airports, sourceIndex, destinationIndex);
+
+        if (!result) {
+          setError("No route found between airports");
+          setRouteWeather([]);
+          return;
+        }
+
+        const { path } = result;
+
+        // Fetch weather for all airports in the path
+        const weatherPromises = path.map(async (airport) => {
+          const [lat, lon] = airport.coords;
+          return await getWeather(lat, lon, airport.name);
+        });
+
+        const weatherResults = await Promise.all(weatherPromises);
+        const validWeatherResults = weatherResults.filter(result => result !== null);
+
+        setRouteWeather(validWeatherResults);
+      } catch (err) {
+        console.error('Error fetching route weather:', err);
+        setError('Failed to fetch weather data for the route');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRouteWeather();
+  }, [sourceAirport, destinationAirport, airports]);
 
   return (
     <div className="w-screen mx-auto p-4 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg rounded-2xl border border-gray-300">
       <h2 className="text-2xl font-extrabold mb-6 text-center text-gray-800">
-        🌤️ Airport Weather Information
+        🌤️ Route Weather Information
       </h2>
 
       {loading && <p className="text-center text-gray-600">Loading weather data...</p>}
@@ -66,40 +113,28 @@ const Weather = ({ sourceAirport, destinationAirport }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {sourceAirport && (
-          <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              {sourceAirport.name} ({sourceAirport.city || "Unknown"})
-            </h3>
+      {routeWeather.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {routeWeather.map((data, index) => (
+            <div key={data.airportName} className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                {index === 0 ? "Source" : index === routeWeather.length - 1 ? "Destination" : `Stop ${index}`}: {data.airportName}
+              </h3>
 
-            {sourceWeather ? (
-              <WeatherDetails weather={sourceWeather} />
-            ) : (
-              <p className="text-center text-gray-500 my-4">Weather data unavailable</p>
-            )}
-          </div>
-        )}
-
-        {destinationAirport && (
-          <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              {destinationAirport.name} ({destinationAirport.city || "Unknown"})
-            </h3>
-
-            {destinationWeather ? (
-              <WeatherDetails weather={destinationWeather} />
-            ) : (
-              <p className="text-center text-gray-500 my-4">Weather data unavailable</p>
-            )}
-          </div>
-        )}
-      </div>
+              {data.weather ? (
+                <WeatherDetails weather={data.weather} />
+              ) : (
+                <p className="text-center text-gray-500 my-4">Weather data unavailable</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
-// ✅ WeatherDetails component with black text for values
+// WeatherDetails component with black text for values
 const WeatherDetails = ({ weather }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">

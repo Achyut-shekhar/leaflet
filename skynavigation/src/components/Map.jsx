@@ -4,6 +4,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import dangerZone from "../data/DangerZone.js";
 import planeIcon from "../assets/plane.png";
+import { findShortestPath } from "../utils/dijkstra";
+import { loadAirportData } from "../utils/airportUtils";
 
 function Map({ sourceAirport, destinationAirport, route, setDistance }) {
   const mapRef = useRef(null);
@@ -12,6 +14,22 @@ function Map({ sourceAirport, destinationAirport, route, setDistance }) {
   const markersRef = useRef([]);
   const planeMarkerRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const airportsRef = useRef([]);
+  const dangerZonesRef = useRef([]);
+
+  // Load airport data
+  useEffect(() => {
+    const fetchAirports = async () => {
+      try {
+        const airports = await loadAirportData();
+        airportsRef.current = airports;
+      } catch (error) {
+        console.error('Error loading airport data:', error);
+      }
+    };
+
+    fetchAirports();
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -46,23 +64,32 @@ function Map({ sourceAirport, destinationAirport, route, setDistance }) {
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
-    // Add danger zones to map
+    // Clear previous danger zones
+    dangerZonesRef.current.forEach(zone => {
+      mapInstanceRef.current.removeLayer(zone);
+    });
+    dangerZonesRef.current = [];
+
+    // Add danger zones to map with lower z-index
     dangerZone.forEach((zone) => {
-      L.polygon(zone.coords, {
+      const dangerZonePolygon = L.polygon(zone.coords, {
         color: zone.color,
         fillColor: zone.color,
         fillOpacity: 0.5,
         weight: 2,
         opacity: 0.3,
+        pane: 'shadowPane' // Use a lower z-index pane
       })
         .addTo(mapInstanceRef.current)
         .bindPopup(`<b>${zone.name}</b><br>Danger Zone`);
+      
+      dangerZonesRef.current.push(dangerZonePolygon);
     });
   }, []);
 
   // Draw route when source or destination changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !route) return;
+    if (!mapInstanceRef.current || !route || airportsRef.current.length === 0) return;
 
     // Clean up previous markers
     markersRef.current.forEach((marker) =>
@@ -82,38 +109,56 @@ function Map({ sourceAirport, destinationAirport, route, setDistance }) {
       cancelAnimationFrame(animationFrameRef.current);
     }
 
-    const sourceCoords = route.source;
-    const destCoords = route.destination;
+    // Find source and destination indices
+    const sourceIndex = airportsRef.current.findIndex(
+      (airport) => airport.name === sourceAirport.name
+    );
+    const destinationIndex = airportsRef.current.findIndex(
+      (airport) => airport.name === destinationAirport.name
+    );
 
-    // Calculate distance
-    const distance =
-      mapInstanceRef.current.distance(
-        L.latLng(sourceCoords[0], sourceCoords[1]),
-        L.latLng(destCoords[0], destCoords[1])
-      ) / 1000;
+    // Find shortest path using Dijkstra's algorithm
+    const result = findShortestPath(airportsRef.current, sourceIndex, destinationIndex);
 
+    if (!result) {
+      console.error("No path found between airports");
+      return;
+    }
+
+    const { path, distance } = result;
     setDistance(distance);
 
-    // Add source marker
-    const sourceMarker = L.marker(sourceCoords)
-      .bindPopup(sourceAirport.name)
-      .addTo(mapInstanceRef.current);
-    sourceMarker.openPopup();
-    markersRef.current.push(sourceMarker);
+    // Create coordinates array for the path
+    const pathCoords = path.map((airport) => airport.coords);
 
-    // Add destination marker
-    const destMarker = L.marker(destCoords)
-      .bindPopup(destinationAirport.name)
-      .addTo(mapInstanceRef.current);
-    destMarker.openPopup();
-    markersRef.current.push(destMarker);
+    // Add markers for each airport in the path with higher z-index
+    path.forEach((airport, index) => {
+      const marker = L.marker(airport.coords, {
+        pane: 'markerPane', // Use a higher z-index pane
+        zIndexOffset: 1000 // Ensure markers are above other elements
+      })
+        .bindPopup(
+          `${index === 0 ? "Source" : index === path.length - 1 ? "Destination" : "Stop " + index}: ${
+            airport.name
+          } (${airport.iata})<br>${airport.city}, ${airport.country}`
+        )
+        .addTo(mapInstanceRef.current);
+      
+      if (index === 0 || index === path.length - 1) {
+        marker.openPopup();
+      }
+      
+      markersRef.current.push(marker);
+    });
 
-    // Draw the route line
-    routeLineRef.current = L.polyline([sourceCoords, destCoords], {
+    // Draw the route line with higher z-index
+    routeLineRef.current = L.polyline(pathCoords, {
       color: "blue",
       weight: 3,
       opacity: 0.7,
       dashArray: "10, 10",
+      pane: 'overlayPane', // Use a higher z-index pane
+      zIndexOffset: 1000 // Ensure route is above other elements
     }).addTo(mapInstanceRef.current);
 
     // Fit map to route bounds
@@ -121,31 +166,41 @@ function Map({ sourceAirport, destinationAirport, route, setDistance }) {
       padding: [50, 50],
     });
 
-    // Create plane icon for animation
+    // Create plane icon for animation with higher z-index
     const planeIconObj = L.icon({
       iconUrl: planeIcon,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
 
-    planeMarkerRef.current = L.marker(sourceCoords, {
+    planeMarkerRef.current = L.marker(pathCoords[0], {
       icon: planeIconObj,
+      pane: 'markerPane', // Use a higher z-index pane
+      zIndexOffset: 2000 // Ensure plane is above everything else
     }).addTo(mapInstanceRef.current);
 
-    // Animate plane movement
+    // Animate plane movement along the path
+    let currentSegment = 0;
     let progress = 0;
 
     function animatePlane() {
-      if (progress > 1) return;
+      if (currentSegment >= pathCoords.length - 1) return;
 
-      const currentLat =
-        sourceCoords[0] + (destCoords[0] - sourceCoords[0]) * progress;
-      const currentLng =
-        sourceCoords[1] + (destCoords[1] - sourceCoords[1]) * progress;
+      const start = pathCoords[currentSegment];
+      const end = pathCoords[currentSegment + 1];
+
+      const currentLat = start[0] + (end[0] - start[0]) * progress;
+      const currentLng = start[1] + (end[1] - start[1]) * progress;
 
       planeMarkerRef.current.setLatLng([currentLat, currentLng]);
 
       progress += 0.002; // Adjust speed here
+
+      if (progress >= 1) {
+        progress = 0;
+        currentSegment++;
+      }
+
       animationFrameRef.current = requestAnimationFrame(animatePlane);
     }
 

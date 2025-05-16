@@ -1,82 +1,72 @@
-import { useState } from 'react';
+import React from "react";
 
-function Header({ activeSection, setActiveSection }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const sections = [
-    { name: "distance", label: "Get Distance" },
-    { name: "traffic", label: "Air Traffic" },
-    { name: "weather", label: "Weather Report" },
-    { name: "contact", label: "Contact Us" },
-  ];
-
+const Header = ({ activeSection, setActiveSection }) => {
   return (
-    <header className="bg-white shadow-md border-b border-gray-200">
-      <div className="max-w-6xl mx-auto flex justify-between items-center p-4">
-        <h1 className="text-2xl font-bold text-blue-600">SkyNavigation</h1>
+    <header className="bg-white shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <h1 className="text-2xl font-bold text-blue-600">SkyNavigation</h1>
+            </div>
+          </div>
 
-        {/* Mobile menu button */}
-        <button
-          className="lg:hidden text-gray-700"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            ></path>
-          </svg>
-        </button>
-
-        {/* Desktop menu */}
-        <nav className="hidden lg:flex space-x-4">
-          {sections.map(({ name, label }) => (
+          <div className="flex items-center space-x-4">
             <button
-              key={name}
-              onClick={() => setActiveSection(name)}
-              className={`px-4 py-2 rounded-md font-semibold ${
-                activeSection === name
+              onClick={() => setActiveSection("distance")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeSection === "distance"
                   ? "bg-blue-500 text-white"
-                  : "text-gray-700 hover:bg-blue-100"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {label}
+              Distance
             </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Mobile menu dropdown */}
-      {isMenuOpen && (
-        <div className="lg:hidden flex flex-col space-y-2 p-4 bg-white shadow-md">
-          {sections.map(({ name, label }) => (
             <button
-              key={name}
-              onClick={() => {
-                setActiveSection(name);
-                setIsMenuOpen(false); // Close the menu after selection
-              }}
-              className={`px-4 py-2 rounded-md font-semibold ${
-                activeSection === name
+              onClick={() => setActiveSection("weather")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeSection === "weather"
                   ? "bg-blue-500 text-white"
-                  : "text-gray-700 hover:bg-blue-100"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {label}
+              Weather
             </button>
-          ))}
+            <button
+              onClick={() => setActiveSection("shortest_route")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeSection === "shortest_route"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Shortest Route
+            </button>
+            <button
+              onClick={() => setActiveSection("air_traffic")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeSection === "air_traffic"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Air Traffic
+            </button>
+            <button
+              onClick={() => setActiveSection("contact")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeSection === "contact"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Contact
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </header>
   );
-}
+};
 
 export default Header;

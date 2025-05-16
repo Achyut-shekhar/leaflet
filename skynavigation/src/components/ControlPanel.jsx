@@ -1,16 +1,35 @@
 import { useState, useEffect } from "react";
-import airports from "../data/airportsData.js";
+import { loadAirportData } from "../utils/airportUtils";
+import { findShortestPath } from "../utils/dijkstra";
 
 function ControlPanel({ onCalculateDistance, distance }) {
   const [sourceIndex, setSourceIndex] = useState(0);
   const [destinationIndex, setDestinationIndex] = useState(1);
   const [airportList, setAirportList] = useState([]);
   const [timeToDestination, setTimeToDestination] = useState(null);
+  const [path, setPath] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (airports && airports.length >= 2) {
-      setAirportList(airports);
-    }
+    const fetchAirports = async () => {
+      try {
+        setLoading(true);
+        const airports = await loadAirportData();
+        if (airports.length >= 2) {
+          setAirportList(airports);
+        } else {
+          setError("Not enough airport data available");
+        }
+      } catch (err) {
+        setError("Failed to load airport data");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAirports();
   }, []);
 
   // Method to calculate the flight time based on the distance
@@ -28,10 +47,18 @@ function ControlPanel({ onCalculateDistance, distance }) {
 
     const source = airportList[sourceIndex];
     const destination = airportList[destinationIndex];
-    onCalculateDistance(source, destination);
+    
+    // Find shortest path
+    const result = findShortestPath(airportList, sourceIndex, destinationIndex);
+    if (result) {
+      setPath(result.path);
+      onCalculateDistance(source, destination);
+    } else {
+      alert("No path found between the selected airports.");
+    }
   };
 
-  const isDisabled = airportList.length < 2;
+  const isDisabled = airportList.length < 2 || loading;
 
   // Update the time whenever distance is available
   useEffect(() => {
@@ -40,6 +67,26 @@ function ControlPanel({ onCalculateDistance, distance }) {
       setTimeToDestination(time);
     }
   }, [distance]);
+
+  if (loading) {
+    return (
+      <div className="w-screen mx-auto p-1 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg rounded-2xl border border-gray-300">
+        <div className="text-center py-4">
+          <p className="text-lg text-gray-700">Loading airport data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-screen mx-auto p-1 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg rounded-2xl border border-gray-300">
+        <div className="text-center py-4">
+          <p className="text-lg text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-screen mx-auto p-1 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg rounded-2xl border border-gray-300">
@@ -71,7 +118,7 @@ function ControlPanel({ onCalculateDistance, distance }) {
             >
               {airportList.map((airport, index) => (
                 <option key={`source-${index}`} value={index}>
-                  {airport.name}
+                  {airport.name} ({airport.iata}) - {airport.city}, {airport.country}
                 </option>
               ))}
             </select>
@@ -92,7 +139,7 @@ function ControlPanel({ onCalculateDistance, distance }) {
             >
               {airportList.map((airport, index) => (
                 <option key={`dest-${index}`} value={index}>
-                  {airport.name}
+                  {airport.name} ({airport.iata}) - {airport.city}, {airport.country}
                 </option>
               ))}
             </select>
@@ -111,7 +158,7 @@ function ControlPanel({ onCalculateDistance, distance }) {
       )}
 
       {distance && !isDisabled && timeToDestination !== null && (
-        <div className="mt-2 p-3 bg-blue-100  border-blue-600 text-blue-900 text-lg rounded-md shadow">
+        <div className="mt-2 p-3 bg-blue-100 border-blue-600 text-blue-900 text-lg rounded-md shadow">
           <p>
             Distance from <strong>{airportList[sourceIndex].name}</strong> to{" "}
             <strong>{airportList[destinationIndex].name}</strong>:{" "}
@@ -123,6 +170,21 @@ function ControlPanel({ onCalculateDistance, distance }) {
               {timeToDestination.toFixed(2)} hours
             </span>
           </p>
+          
+          {path && path.length > 2 && (
+            <div className="mt-2">
+              <p className="font-semibold">Route Details:</p>
+              <ol className="list-decimal list-inside">
+                {path.map((airport, index) => (
+                  <li key={index} className="ml-2">
+                    {airport.name} ({airport.iata})
+                    {index === 0 && " (Source)"}
+                    {index === path.length - 1 && " (Destination)"}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
       )}
     </div>

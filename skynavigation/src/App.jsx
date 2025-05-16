@@ -5,6 +5,7 @@ import ControlPanel from "./components/ControlPanel";
 import AirTrafficMap from "./pages/air_traffic";
 import Weather from "./pages/weather";
 import Contact from "./pages/Contact";  // ✅ New Import
+import ShortestRoute from "./pages/shortest_route";
 import "./animations.css";
 
 function App() {
@@ -96,7 +97,7 @@ function App() {
               </>
             )}
 
-            {activeSection === "traffic" && (
+            {activeSection === "air_traffic" && (
               <div className="flex-1 overflow-hidden">
                 <AirTrafficMap />
               </div>
@@ -111,7 +112,16 @@ function App() {
               </div>
             )}
 
-            {activeSection === "contact" && (  // ✅ New Contact Section
+            {activeSection === "shortest_route" && (
+              <div className="flex-1 overflow-auto">
+                <ShortestRoute
+                  sourceAirport={sourceAirport}
+                  destinationAirport={destinationAirport}
+                />
+              </div>
+            )}
+
+            {activeSection === "contact" && (
               <div className="flex-1 overflow-auto">
                 <Contact />
               </div>

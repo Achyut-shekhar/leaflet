@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -57,7 +57,6 @@ const SAMPLE_FLIGHTS = [
     velocity: 230,
     trueTrack: 180,
   },
-  // Chennai area
   {
     icao24: "800bc6",
     callsign: "IAF622",
@@ -79,7 +78,6 @@ const SAMPLE_FLIGHTS = [
     velocity: 280,
     trueTrack: 315,
   },
-  // Hyderabad area
   {
     icao24: "800bc8",
     callsign: "AIC839",
@@ -164,22 +162,19 @@ const SAMPLE_FLIGHTS = [
   },
 ];
 
-// Add animation to sample flights
-const animateSampleFlights = () => {
-  return SAMPLE_FLIGHTS.map((plane) => {
-    // Calculate new position based on speed and direction
+// Optimize sample flights animation
+const animateSampleFlights = (prevPlanes) => {
+  return prevPlanes.map((plane) => {
     const speedFactor = (0.0001 * plane.velocity) / 100;
     const radians = (plane.trueTrack * Math.PI) / 180;
 
-    // Update lat/lon based on heading and speed
     const newLat = plane.latitude + Math.cos(radians) * speedFactor;
     const newLon = plane.longitude + Math.sin(radians) * speedFactor;
 
-    // Keep planes within India region
-    const boundedLat = Math.max(5, Math.min(40, newLat));
-    const boundedLon = Math.max(60, Math.min(100, newLon));
+    // Keep planes within global bounds
+    const boundedLat = Math.max(-90, Math.min(90, newLat));
+    const boundedLon = Math.max(-180, Math.min(180, newLon));
 
-    // Update plane position
     return {
       ...plane,
       latitude: boundedLat,
@@ -224,9 +219,8 @@ function AirTrafficMap() {
     }
   }, [useSampleData]);
 
-  // Create plane icon based on altitude and type
-  const createPlaneIcon = (rotation, altitude) => {
-    // Determine color based on altitude
+  // Optimize marker creation with memoization
+  const createPlaneIcon = useCallback((rotation, altitude) => {
     let color = "#3b82f6"; // Blue for high altitude
     if (altitude < 5000) {
       color = "#ef4444"; // Red for low altitude
@@ -243,10 +237,10 @@ function AirTrafficMap() {
         </svg>
       `,
       className: "plane-icon",
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
+      iconSize: [24, 24], // Reduced size
+      iconAnchor: [12, 12],
     });
-  };
+  }, []);
 
   // Calculate exponential backoff time for API retries
   const calculateBackoffTime = (retryAttempt) => {
@@ -264,34 +258,23 @@ function AirTrafficMap() {
     return Math.round(expBackoff);
   };
 
-  // Fetch air traffic data from API
-  const fetchAirTraffic = async () => {
-    // Use sample data if explicitly selected or if we're still in backoff period
-    if (useSampleData) {
-      return;
-    }
+  // Optimize data fetching
+  const fetchAirTraffic = useCallback(async () => {
+    if (useSampleData) return;
 
     setLoading(true);
     try {
-      // Bounding box for India and nearby regions
       const bounds = {
-        south: 5.0,
-        west: 60.0,
-        north: 40.0,
-        east: 100.0,
+        south: -90.0,
+        west: -180.0,
+        north: 90.0,
+        east: 180.0,
       };
 
-      // Using the OpenSky Network API
       const url = `https://opensky-network.org/api/states/all?lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`;
-      console.log(url);
-      const response = await fetch(url, {
-        // Uncomment and update if you have an OpenSky account
-        // headers: {
-        //   'Authorization': 'Basic ' + btoa('YOUR_USERNAME:YOUR_PASSWORD')
-        // }
-      });
-
-      // Handle rate limiting explicitly
+      
+      const response = await fetch(url);
+      
       if (response.status === 429) {
         throw new Error("Rate limited by OpenSky API");
       }
@@ -303,8 +286,9 @@ function AirTrafficMap() {
       const data = await response.json();
 
       if (data.states && Array.isArray(data.states)) {
+        // Optimize data processing
         const planes = data.states
-          .filter((plane) => plane[5] && plane[6]) // Filter out null positions
+          .filter((plane) => plane[5] && plane[6])
           .map((plane) => ({
             icao24: plane[0],
             callsign: plane[1]?.trim() || "N/A",
@@ -314,16 +298,15 @@ function AirTrafficMap() {
             altitude: plane[7] || 0,
             velocity: plane[9] || 0,
             trueTrack: plane[10] || 0,
-          }));
+          }))
+          .slice(0, 1000); // Limit to 1000 planes for better performance
 
         if (planes.length > 0) {
           setAirplanes(planes);
           setError(null);
-          setRetryCount(0); // Reset retry count on success
+          setRetryCount(0);
           setNextRetryTime(null);
         } else {
-          // No planes found, but API responded - use sample data
-          console.warn("No flight data returned from API");
           setError("No flight data available from API. Using sample data.");
           setUseSampleData(true);
         }
@@ -331,85 +314,104 @@ function AirTrafficMap() {
         throw new Error("Invalid API response format");
       }
 
-      // Update last fetched timestamp
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching air traffic data:", error);
-
-      // Handle rate limits with exponential backoff
-      if (
-        error.message.includes("Rate limited") ||
-        error.message.includes("429")
-      ) {
-        const nextRetry = calculateBackoffTime(retryCount);
-        const retryDate = new Date(Date.now() + nextRetry);
-
-        setError(
-          `Rate limited by OpenSky API. Using sample data. Will retry at ${retryDate.toLocaleTimeString()}`
-        );
-        setRetryCount((prev) => prev + 1);
-        setNextRetryTime(retryDate);
-        setUseSampleData(true);
-
-        // Schedule next retry
-        setTimeout(() => {
-          if (!useSampleData) {
-            fetchAirTraffic();
-          }
-        }, nextRetry);
-      } else {
-        // Other errors
-        setError(
-          `Error fetching flight data: ${error.message}. Using sample data.`
-        );
-        setUseSampleData(true);
-      }
+      handleFetchError(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [useSampleData]);
 
-  // Initialize map
+  // Optimize marker updates
   useEffect(() => {
-    // Fix Leaflet icon paths
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-      iconUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-      shadowUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    if (!mapInstanceRef.current || !airplanes.length) return;
+
+    const map = mapInstanceRef.current;
+    const currentMarkers = { ...markersRef.current };
+    const currentIcaos = new Set(airplanes.map((plane) => plane.icao24));
+
+    // Batch marker updates
+    const updateBatch = [];
+    const removeBatch = [];
+
+    // Process updates in batches
+    airplanes.forEach((plane) => {
+      const { icao24, latitude, longitude, trueTrack, altitude } = plane;
+
+      if (currentMarkers[icao24]) {
+        updateBatch.push(() => {
+          currentMarkers[icao24].setLatLng([latitude, longitude]);
+          currentMarkers[icao24].setIcon(createPlaneIcon(trueTrack, altitude));
+        });
+      } else {
+        const marker = L.marker([latitude, longitude], {
+          icon: createPlaneIcon(trueTrack, altitude),
+          zIndexOffset: 1000
+        }).addTo(map);
+
+        // Simplified popup content
+        marker.bindPopup(`
+          <div>
+            <strong>${plane.callsign}</strong><br>
+            ${plane.originCountry}<br>
+            Alt: ${Math.round(plane.altitude)}m<br>
+            Speed: ${Math.round(plane.velocity)}m/s
+          </div>
+        `);
+
+        currentMarkers[icao24] = marker;
+      }
     });
 
-    // Create map instance
-    const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+    // Process removals
+    Object.keys(currentMarkers).forEach((icao) => {
+      if (!currentIcaos.has(icao)) {
+        removeBatch.push(() => {
+          map.removeLayer(currentMarkers[icao]);
+          delete currentMarkers[icao];
+        });
+      }
+    });
 
-    // Add tile layer
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 18,
+    // Execute updates in batches
+    requestAnimationFrame(() => {
+      updateBatch.forEach(update => update());
+      removeBatch.forEach(remove => remove());
+      markersRef.current = currentMarkers;
+    });
+
+  }, [airplanes, createPlaneIcon]);
+
+  // Optimize map initialization
+  useEffect(() => {
+    const map = L.map(mapRef.current, {
+      maxZoom: 8, // Limit maximum zoom
+      minZoom: 2,
+      zoomControl: false, // Disable default zoom control
+    }).setView([0, 0], 2);
+
+    // Add optimized tile layer
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 8,
     }).addTo(map);
 
-    // Add scale control
-    L.control.scale().addTo(map);
+    // Add zoom control in a specific position
+    L.control.zoom({
+      position: 'bottomright'
+    }).addTo(map);
 
-    // Store map instance
     mapInstanceRef.current = map;
-
-    // Initial data fetch
     fetchAirTraffic();
 
-    // Set up periodic refresh for real data (if not rate limited)
-    // Use a reasonable interval (2 minutes) to avoid rate limits
     const intervalId = setInterval(() => {
       if (!useSampleData && !nextRetryTime) {
         fetchAirTraffic();
       }
-    }, 120000); // 2 minutes
+    }, 300000); // Increased to 5 minutes to reduce API calls
 
-    // Cleanup function
     return () => {
       clearInterval(intervalId);
       if (animationFrameRef.current) {
@@ -418,80 +420,6 @@ function AirTrafficMap() {
       map.remove();
     };
   }, []);
-
-  // Update plane markers when airplanes data changes
-  useEffect(() => {
-    if (!mapInstanceRef.current || !airplanes.length) return;
-
-    const map = mapInstanceRef.current;
-    const currentMarkers = { ...markersRef.current };
-    const currentIcaos = new Set(airplanes.map((plane) => plane.icao24));
-
-    // Add or update markers
-    airplanes.forEach((plane) => {
-      const { icao24, latitude, longitude, trueTrack, altitude } = plane;
-
-      if (currentMarkers[icao24]) {
-        // Update existing marker
-        currentMarkers[icao24].setLatLng([latitude, longitude]);
-        currentMarkers[icao24].setIcon(createPlaneIcon(trueTrack, altitude));
-      } else {
-        // Create new marker
-        const marker = L.marker([latitude, longitude], {
-          icon: createPlaneIcon(trueTrack, altitude),
-        }).addTo(map);
-
-        // Add popup with detailed flight info
-        marker.bindPopup(`
-          <div style="min-width: 200px;">
-            <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${
-              plane.callsign
-            }</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 3px 0;"><strong>Country:</strong></td>
-                <td style="padding: 3px 0;">${plane.originCountry}</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0;"><strong>Altitude:</strong></td>
-                <td style="padding: 3px 0;">${Math.round(
-                  plane.altitude
-                ).toLocaleString()} m</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0;"><strong>Speed:</strong></td>
-                <td style="padding: 3px 0;">${Math.round(
-                  plane.velocity
-                ).toLocaleString()} m/s</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0;"><strong>Heading:</strong></td>
-                <td style="padding: 3px 0;">${Math.round(plane.trueTrack)}°</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0;"><strong>ID:</strong></td>
-                <td style="padding: 3px 0;">${plane.icao24}</td>
-              </tr>
-            </table>
-          </div>
-        `);
-
-        // Store marker reference
-        currentMarkers[icao24] = marker;
-      }
-    });
-
-    // Remove markers for planes no longer in the data
-    Object.keys(currentMarkers).forEach((icao) => {
-      if (!currentIcaos.has(icao)) {
-        map.removeLayer(currentMarkers[icao]);
-        delete currentMarkers[icao];
-      }
-    });
-
-    // Update markers reference
-    markersRef.current = currentMarkers;
-  }, [airplanes]);
 
   // Toggle data source (sample vs. real API data)
   const toggleDataSource = () => {
@@ -529,7 +457,7 @@ function AirTrafficMap() {
   return (
     <div className="flex flex-col space-y-4 bg-blue-500">
       <h2 className="text-center font-bold text-2xl">
-        Live Air Traffic Map - India
+        Live Air Traffic Map - Global
       </h2>
 
       {/* Map container */}
