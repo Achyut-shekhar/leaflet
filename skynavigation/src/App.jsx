@@ -4,7 +4,7 @@ import Map from "./components/Map";
 import ControlPanel from "./components/ControlPanel";
 import AirTrafficMap from "./pages/air_traffic";
 import Weather from "./pages/weather";
-import Contact from "./pages/Contact";  // ✅ New Import
+import Contact from "./pages/Contact"; // ✅ New Import
 import ShortestRoute from "./pages/shortest_route";
 import "./animations.css";
 
@@ -12,6 +12,7 @@ function App() {
   const [sourceAirport, setSourceAirport] = useState(null);
   const [destinationAirport, setDestinationAirport] = useState(null);
   const [distance, setDistance] = useState(null);
+  const [estimatedTime, setEstimatedTime] = useState(null);
   const [route, setRoute] = useState(null);
   const [activeSection, setActiveSection] = useState("distance");
   const [showSplash, setShowSplash] = useState(true);
@@ -21,14 +22,24 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleCalculateDistance = (source, destination) => {
+  // Updated to receive an object with all info
+  const handleCalculateDistance = ({
+    source,
+    destination,
+    distance,
+    time,
+    path,
+  }) => {
     setSourceAirport(source);
     setDestinationAirport(destination);
-    if (source && destination) {
-      setRoute({
-        source: source.coords,
-        destination: destination.coords,
-      });
+    setDistance(distance);
+    setEstimatedTime(time);
+
+    if (path && path.length > 0) {
+      // Assuming path is array of airports, map to their coordinates for the Map component
+      setRoute(path.map((airport) => airport.coords));
+    } else {
+      setRoute(null);
     }
   };
 
@@ -82,12 +93,7 @@ function App() {
           <div className="flex-1 flex flex-col">
             {activeSection === "distance" && (
               <>
-                <ControlPanel
-                  onCalculateDistance={handleCalculateDistance}
-                  distance={distance}
-                  sourceAirport={sourceAirport}
-                  destinationAirport={destinationAirport}
-                />
+                <ControlPanel onCalculate={handleCalculateDistance} />
                 <Map
                   sourceAirport={sourceAirport}
                   destinationAirport={destinationAirport}

@@ -213,7 +213,7 @@ function Map({ sourceAirport, destinationAirport, route, setDistance }) {
     };
   }, [route, sourceAirport, destinationAirport, setDistance]);
 
-  return <div ref={mapRef} className="w-full flex-1"></div>;
+  return <div ref={mapRef} className="w-full h-full flex-1"></div>;
 }
 
 export default Map;
