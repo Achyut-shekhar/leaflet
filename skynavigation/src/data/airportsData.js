@@ -626,6 +626,14 @@ const airports = [
     name: "Lal Bahadur Shastri International Airport",
     coords: [25.4524, 82.8593],
   },
+  {
+    name: "Goroka Airport",
+    coords: [-6.0817, 145.3919],
+    city: "Goroka",
+    country: "Papua New Guinea",
+    iata: "GKA",
+    icao: "AYGA"
+  },
 ];
 
 window.airports = airports;

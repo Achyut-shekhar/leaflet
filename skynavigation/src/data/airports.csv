@@ -399,3 +399,5 @@ Airport ID,Name,City,Country,IATA,ICAO,Latitude,Longitude,Altitude,Timezone,DST,
 398,"Lethbridge Airport","Lethbridge","Canada","YQL","CYQL",49.6303,-112.7997,3048,-6,"U","America/Edmonton","airport","OurAirports"
 399,"Medicine Hat Regional Airport","Medicine Hat","Canada","YXH","CYXH",50.0189,-110.7208,2352,-6,"U","America/Edmonton","airport","OurAirports"
 400,"Yellowknife Airport","Yellowknife","Canada","YZF","CYZF",62.4628,-114.4406,675,-6,"U","America/Yellowknife","airport","OurAirports" 
+401,"Dehradun Airport","Dehradun","India","DED","VIDN",30.189699,78.180298,1831,10,"N","Asia/Kolkata","airport","OurAirports"
+402,"Ninoy Aquino International Airport","Manila","Philippines","MNL","RPLL",14.5086,121.019997,75,6,"N","Asia/Manila","airport","OurAirports"
