@@ -16,6 +16,7 @@ function App() {
   const [route, setRoute] = useState(null);
   const [activeSection, setActiveSection] = useState("distance");
   const [showSplash, setShowSplash] = useState(true);
+  const [path, setPath] = useState(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 4000);
@@ -34,6 +35,7 @@ function App() {
     setDestinationAirport(destination);
     setDistance(distance);
     setEstimatedTime(time);
+    setPath(path);
 
     if (path && path.length > 0) {
       // Assuming path is array of airports, map to their coordinates for the Map component
@@ -114,6 +116,7 @@ function App() {
                 <Weather
                   sourceAirport={sourceAirport}
                   destinationAirport={destinationAirport}
+                  path={path}
                 />
               </div>
             )}
